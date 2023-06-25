@@ -9,7 +9,7 @@ PROJECT = 'p1'
 #builds and returns data rows (list of tuples) to insert in table
 def buildCommit(id, parent, commitNum, interval, timestamp):
     data = []
-    errorFound = False
+    errorNum = 0
     repo.git.checkout(id, force=True)
 
     #get the errorviz version if it exists
@@ -40,13 +40,12 @@ def buildCommit(id, parent, commitNum, interval, timestamp):
                     errCode = None
 
                 #append row to data list
-                data.append((user, id, parent, commitNum, rustVer, errorvizVer, error, errCode, interval, timestamp))
+                data.append((user, rustVer, errorvizVer, id, parent, commitNum, errorNum, error, errCode, interval, timestamp))
+                errorNum += 1
 
     #if no errors in message report, data contains no error
-    if errorFound == False:
-        error = 'No Error'
-        errCode = None
-        data.append((user, id, parent, commitNum, rustVer, errorvizVer, error, errCode, interval, timestamp))
+    if errorNum == 0:
+        data.append((user, rustVer, errorvizVer, id, parent, commitNum, None, 'No Error', None, interval, timestamp))
 
     #remove report and return data    
     os.system('rm errorReport')
@@ -61,7 +60,7 @@ os.system("rm commitErrors.db")
 #create db with headers
 with closing(sqlite3.connect('commitErrors.db')) as connection:
     with closing(connection.cursor()) as cursor:
-        cursor.execute("create table commits (user text, commitID hexadecimal, parentID hexadecimal, commitNumber integer, rustVer text, errorvizVer text, error text, errcode text, interval integer, timestamp integer)")
+        cursor.execute("create table commits (user text, rustVer text, errorvizVer text, commitID hexadecimal, parentID hexadecimal, commitNumber integer, errorNum integer, error text, errcode text, interval integer, timestamp integer)")
 
         #iterate each user
         os.chdir('users')
@@ -94,7 +93,7 @@ with closing(sqlite3.connect('commitErrors.db')) as connection:
 
                 #insert data into db
                 for row in data:
-                    cursor.executemany("insert into commits values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (row,))
+                    cursor.executemany("insert into commits values (?,? , ?, ?, ?, ?, ?, ?, ?, ?, ?)", (row,))
                 connection.commit()
 
                 #increment commit number
