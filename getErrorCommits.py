@@ -6,8 +6,10 @@ from contextlib import closing
 
 PROJECT = 'p1'
 
-#builds and returns data row (tuple) to insert in table
+#builds and returns data rows (list of tuples) to insert in table
 def buildCommit(id, parent, commitNum, interval, timestamp):
+    data = []
+    errorFound = False
     repo.git.checkout(id, force=True)
 
     #get the errorviz version if it exists
@@ -23,31 +25,35 @@ def buildCommit(id, parent, commitNum, interval, timestamp):
 
     #run build and get json with first error
     os.system('cargo build --message-format=json > errorReport')
-    firstErr = None
     with open('errorReport') as file:
         for line in file:
-            if '"reason":"compiler-message"' in line and '"level":"error"' in line:
-                firstErr = line
-                break
-    
-    #get error code and desc from json
-    if firstErr != None:
-        firstErrJSON = json.loads(firstErr)
-        if firstErrJSON["message"] != None:
-            error = firstErrJSON["message"]["message"]
-            if firstErrJSON["message"]["code"] != None:
-                errCode = firstErrJSON["message"]["code"]["code"]
-            else:
-                errCode = None
-        else:
-            error = None
-            errCode = None
-    else:
-        error = "No Error"
-        errCode = "No Error"
+            if ('"reason":"compiler-message"' in line) and ('"level":"error"' in line) and not('aborting due to' in line and 'previous error' in line):
+                errorFound = True
+                #get error description from json
+                errorJson = json.loads(line)
+                error = errorJson["message"]["message"]
 
-    #return data
-    return (user, id, parent, commitNum, rustVer, errorvizVer, error, errCode, interval, timestamp)
+                #syntax errors don't have error codes
+                if errorJson["message"]["code"] != None:
+                    errCode = errorJson["message"]["code"]["code"]
+                else:
+                    errCode = None
+
+                #append row to data list
+                data.append((user, id, parent, commitNum, rustVer, errorvizVer, error, errCode, interval, timestamp))
+
+    #if no errors in message report, data contains no error
+    if errorFound == False:
+        error = 'No Error'
+        errCode = None
+        data.append((user, id, parent, commitNum, rustVer, errorvizVer, error, errCode, interval, timestamp))
+
+    #remove report and return data    
+    os.system('rm errorReport')
+    return data
+
+
+
 
 #delete old database
 os.system("rm commitErrors.db")
@@ -87,7 +93,8 @@ with closing(sqlite3.connect('commitErrors.db')) as connection:
                 data = buildCommit(id, parent, commitNum, interval, timestamp)
 
                 #insert data into db
-                cursor.executemany("insert into commits values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (data,))
+                for row in data:
+                    cursor.executemany("insert into commits values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (row,))
                 connection.commit()
 
                 #increment commit number
