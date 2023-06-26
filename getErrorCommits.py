@@ -25,7 +25,7 @@ def buildCommit():
 
     #append 'mod repl_helper;' to lib.rs
     #special case for 407952
-    if commitNum > 2028 and user == '407592':
+    if commitNum > 2028 and str(user) == '407952':
         with open('src/lib.rs', 'a') as file:
             file.write('\nmod repl_helper;')
 
@@ -70,9 +70,9 @@ with closing(sqlite3.connect('commitErrors.db')) as connection:
 
         #iterate each user
         os.chdir('users')
-        users = os.listdir()
-        if '.DS_Store' in users:
+        if '.DS_Store' in os.listdir():
             os.remove('.DS_Store')
+        users = os.listdir()
         for user in users:
             os.chdir(user)
 
@@ -82,7 +82,7 @@ with closing(sqlite3.connect('commitErrors.db')) as connection:
             prevstamp = 0
             interval = 0
             commitNum = 0
-            for commit in repo.iter_commits('main', reverse=True):
+            for commit in repo.iter_commits(reverse=True):
 
                 #get timestamp and interval
                 timestamp = commit.authored_datetime.timestamp()
@@ -100,7 +100,7 @@ with closing(sqlite3.connect('commitErrors.db')) as connection:
 
                 #insert data into db
                 for row in data:
-                    cursor.executemany("insert into commits values (?,? , ?, ?, ?, ?, ?, ?, ?, ?, ?)", (row,))
+                    cursor.executemany("insert into commits values (?, ? , ?, ?, ?, ?, ?, ?, ?, ?, ?)", (row,))
                 connection.commit()
 
                 #increment commit number
