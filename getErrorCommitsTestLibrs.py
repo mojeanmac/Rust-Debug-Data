@@ -25,15 +25,16 @@ def buildCommit():
 
     #append 'mod repl_helper;' to lib.rs
     #special case for 407952
-    if commitNum > 2028 and user == '407592':
-        with open('src/lib.rs', 'a') as file:
-            file.write('\nmod repl_helper;')
+    # if commitNum > 2000 and user == '407592':
+    with open('src/lib.rs', 'a') as file:
+        file.write('\nmod repl_helper;')
 
     #run build and get json with first error
     os.system('cargo build --message-format=json > errorReport')
     with open('errorReport') as file:
         for line in file:
             if ('"reason":"compiler-message"' in line) and ('"level":"error"' in line) and not('aborting due to' in line and 'previous error' in line):
+                errorFound = True
                 #get error description from json
                 errorJson = json.loads(line)
                 error = errorJson["message"]["message"]
@@ -82,7 +83,7 @@ with closing(sqlite3.connect('commitErrors.db')) as connection:
             prevstamp = 0
             interval = 0
             commitNum = 0
-            for commit in repo.iter_commits('main', reverse=True):
+            for commit in repo.iter_commits(reverse = True, rev='4649cf8...ca6711d'):
 
                 #get timestamp and interval
                 timestamp = commit.authored_datetime.timestamp()
