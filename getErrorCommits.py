@@ -38,6 +38,14 @@ def buildCommit():
                 errorJson = json.loads(line)
                 error = errorJson["message"]["message"]
 
+                #check if line number provided
+                if errorJson["message"]["spans"] != None and errorJson["message"]["spans"] != []:
+                    lineStart = errorJson["message"]["spans"][0]["line_start"]
+                    lineEnd = errorJson["message"]["spans"][0]["line_end"]
+                else:
+                    lineStart = None
+                    lineEnd = None
+
                 #syntax errors don't have error codes
                 if errorJson["message"]["code"] != None:
                     errCode = errorJson["message"]["code"]["code"]
@@ -45,12 +53,12 @@ def buildCommit():
                     errCode = None
 
                 #append row to data list
-                data.append((user, rustVer, errorvizVer, id, parent, commitNum, errorNum, error, errCode, interval, timestamp))
+                data.append((user, rustVer, errorvizVer, id, parent, commitNum, errorNum, error, errCode, lineStart, lineEnd, interval, timestamp))
                 errorNum += 1
 
     #if no errors in message report, data contains no error
     if errorNum == 0:
-        data.append((user, rustVer, errorvizVer, id, parent, commitNum, None, 'No Error', None, interval, timestamp))
+        data.append((user, rustVer, errorvizVer, id, parent, commitNum, None, 'No Error', None, None, None, interval, timestamp))
 
     #remove report and return data    
     os.remove('errorReport')
@@ -66,7 +74,7 @@ if 'commitErrors.db' in os.listdir():
 #create db with headers
 with closing(sqlite3.connect('commitErrors.db')) as connection:
     with closing(connection.cursor()) as cursor:
-        cursor.execute("create table commits (user text, rustVer text, errorvizVer text, commitID hexadecimal, parentID hexadecimal, commitNumber integer, errorNum integer, error text, errcode text, interval integer, timestamp integer)")
+        cursor.execute("create table commits (user text, rustVer text, errorvizVer text, commitID hexadecimal, parentID hexadecimal, commitNumber integer, errorNum integer, error text, errcode text, lineStart integer, lineEnd integer, interval integer, timestamp integer)")
 
         #iterate each user
         os.chdir('users')
@@ -100,7 +108,7 @@ with closing(sqlite3.connect('commitErrors.db')) as connection:
 
                 #insert data into db
                 for row in data:
-                    cursor.executemany("insert into commits values (?, ? , ?, ?, ?, ?, ?, ?, ?, ?, ?)", (row,))
+                    cursor.executemany("insert into commits values (?, ? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (row,))
                 connection.commit()
 
                 #increment commit number
